@@ -27,8 +27,7 @@ print "devices: %s" % n.listDevices()
 
 for i in range(len(n.listDevices())):
     dev = n.listDevices()[i]
-    
-    print dev, " Product Category : ", n.GetDevProductCategory(dev)
+
     print "\nAnalog Channels:"
     print "  AI: ", n.listAIChannels(dev)
     print "  AO: ", n.listAOChannels(dev)
@@ -76,17 +75,17 @@ def contReadTest():
 def outputTest():
     print "::::::::::::::::::  Analog Output Test  :::::::::::::::::::::"
     task = n.createTask()
-    task.CreateAOVoltageChan("/Dev1/ao0", "", -10., 10., n.Val_Volts, None)
+    task.CreateAOVoltageChan("/Dev1/ao0", "", -10.,10., n.Val_Volts, None)#On cree le channel 
     task.CfgSampClkTiming(None, 10000.0, n.Val_Rising, n.Val_FiniteSamps, 1000)
+
+    data=np.zeros(1000.)
     
-    data = np.zeros((1000,), dtype=np.float64)
-    data[200:400] = 5.0
-    data[600:800] = 5.0
-    task.write(data)
-    task.start()
-    time.sleep(0.2)
-    task.stop()
+    data[30:130]=5
     
+    task.write(data)#ecris data dans le channel
+    task.start()#Demarre la tache
+    time.sleep(0.2)#tempo pour aquérir/génerer les echatillons/remplir le buffer
+    task.stop() 
 
 
 
@@ -121,9 +120,6 @@ def syncAIOTest():
     task1.CfgSampClkTiming(None , 100000.0, n.Val_Rising, n.Val_FiniteSamps, 1000)
     #task1.CfgDigEdgeStartTrig("/Dev1/ao/SampleClock",n.Val_Rising)
     #task1.CfgSampClkTiming(None, 10000.0, n.Val_Rising, n.Val_FiniteSamps, 1000)
-    
-    res = n.GetDevProductType("Dev1")
-    print res
     
     task2 = n.createTask()
     task2.CreateAOVoltageChan("/Dev2/ao0", "", -10., 10., n.Val_Volts, None)
@@ -223,26 +219,26 @@ st = n.createSuperTask()
 def superTaskTest():
     print "::::::::::::::::::  SuperTask  Test  :::::::::::::::::::::"
 
-    st.addChannel('/Dev1/ai0', 'ai')
-    st.addChannel('/Dev1/ai1', 'ai')
+    st.addChannel('/Dev1/ai8', 'ai')
+    st.addChannel('/Dev1/ai9', 'ai')
     st.addChannel('/Dev1/ao0', 'ao')
     st.addChannel('/Dev1/ao1', 'ao')
     st.addChannel('/Dev1/port0/line2', 'di')
     st.addChannel('/Dev1/port0/line3', 'di')
-    st.addChannel('/Dev1/port0/line0', 'do')
-    st.addChannel('/Dev1/port0/line1', 'do')
+    st.addChannel('/Dev1/port0/line4', 'do')
+    st.addChannel('/Dev1/port0/line5', 'do')
 
     ao = np.zeros((2, 1000))
-    ao[0, 200:300] = 1.0
-    ao[1, 400:500] = 2.0
+    ao[0, 200:300] = 5.0
+    ao[1, 400:500] = 0
     st.setWaveform('/Dev1/ao0', ao[0])
     st.setWaveform('/Dev1/ao1', ao[1])
 
     do = np.zeros((2, 1000), dtype=np.uint32)
     do[0, 600:700] = 15
     do[1, 700:800] = 15
-    st.setWaveform('/Dev1/port0/line0', do[0])
-    st.setWaveform('/Dev1/port0/line1', do[1])
+    st.setWaveform('/Dev1/port0/line4', do[0])
+    st.setWaveform('/Dev1/port0/line5', do[1])
 
     st.configureClocks(rate=10000, nPts=1000)
     
@@ -272,20 +268,19 @@ def analogSuperTaskTest():
     st.addChannel('/Dev2/ai1', 'ai', n.Val_RSE)
     st.addChannel('/Dev1/ao0', 'ao', n.Val_PseudoDiff)
     st.addChannel('/Dev2/ao1', 'ao', n.Val_RSE)
-    
-    ao2 = np.zeros(1000)
-    ao1 = np.zeros(1000)
-    ao2[200:300] = 1.0
-    ao1[200:300] = 2.0
-    st.setWaveform('/Dev1/ao0', ao1)
-    st.setWaveform('/Dev2/ao1', ao2)
+
+    ao = np.zeros((2, 1000))
+    ao[0, 200:300] = 1.0
+    ao[1, 400:500] = 2.0
+    st.setWaveform('/Dev1/ao0', ao[0])
+    st.setWaveform('/Dev2/ao1', ao[1])
     #print 'here'
     st.configureClocks(rate=10000., nPts=1000)
     
     #st.setTrigger('/Dev1/PFI5')
-    #print '11'
+    
+    print '11'
     data = st.run()
-    #print '12'
     print "waiting for trigger.."
     
     for k in data:
@@ -463,18 +458,17 @@ def countPhotonTaskAnalogOutputTest():
     
     task = n.createTask()
     task.CreateAOVoltageChan("/Dev1/ao0", "", -10., 10., n.Val_Volts, None)
-    task.CfgSampClkTiming(None, 10000.0, n.Val_Rising, n.Val_FiniteSamps, 1000)
+    task.CfgSampClkTiming(None, 1000.0, n.Val_Rising, n.Val_FiniteSamps, 2000)
     #tPulses = n.createTask()
     #tPulses.CreateCOPulseChanFreq("Dev1/ctr1","",n.Val_Hz,n.Val_Low,0.0,10000.,0.50)
     #tPulses.CfgImplicitTiming(n.Val_ContSamps,1000)
     
     tCount = n.createTask()
     tCount.CreateCICountEdgesChan("/Dev1/ctr0", "", n.Val_Rising, 0, n.Val_CountUp)
-    tCount.CfgSampClkTiming("/Dev1/ao/SampleClock", 10000., n.Val_Rising, n.Val_FiniteSamps, 1000)
+    tCount.CfgSampClkTiming("/Dev1/ao/SampleClock", 1000., n.Val_Rising, n.Val_FiniteSamps, 2000)
     
-    data = np.zeros((1000,), dtype=np.float64)
-    data[200:400] = 5.0
-    data[600:800] = 5.0
+    data = np.zeros((2000,), dtype=np.float64)
+    data[400:500] = 5.0
     task.write(data)
     #task.start()
     
@@ -493,10 +487,6 @@ def countPhotonTaskAnalogOutputTest():
     task.stop()
 
     return counts
-
-    
-    
-    
     
 ########################################################################
 
@@ -507,9 +497,9 @@ def countPhotonTaskAnalogOutputTest():
 #syncIOTest()
 #syncADTest()
 #triggerTest()
-#data = superTaskTest()
-dd = analogSuperTaskTest()
+data = superTaskTest()
+#analogSuperTaskTest()
 #data = analogSyncAcrossDevices()
 #dd = countPhotonTaskTest()
 #dd = countPhotonTaskAnalogOutputTest()
-
+print data

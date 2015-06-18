@@ -6,21 +6,15 @@ from numpy import *
 import acq4.util.ptime as ptime  ## platform-independent precision timing
 from collections import OrderedDict
 #import debug
-import pdb
-
-# refClkTimebase does not work for the new device family
-#newDeviceFamilies = [DAQmx_Val_MSeriesDAQ, DAQmx_Val_XSeriesDAQ]
-#oldDeviceFamilies = [DAQmx_Val_ESeriesDAQ, DAQmx_Val_SSeriesDAQ, DAQmx_Val_BSeriesDAQ, DAQmx_Val_AOSeries]
-
 
 class SuperTask:
     """Class for creating and encapsulating multiple synchronous tasks. Holds and assembles arrays for writing to each task as well as per-channel meta data."""
     
     def __init__(self, daq):
         self.daq = daq
-        self.tasks = {}  # {taskKey: Task}
-        self.taskInfo = {}  # {taskKey: {'cache': ..., 'chans': [...], 'dataWritten': bool}
-        self.channelInfo = {}  # {'channelName': {'task': taskKey, 'type': '...', 'index': int, 'data': ..., 'clipped': bool}}
+        self.tasks = {}
+        self.taskInfo = {}
+        self.channelInfo = {}
         self.dataWrtten = False
         self.devs = daq.listDevices()
         self.triggerChannel = None
@@ -48,11 +42,6 @@ class SuperTask:
             raise Exception('Must specify type of task (ai, ao, di, do)')
         parts = chan.lstrip('/').split('/')
         devn = parts[0]
-        #print devn
-        # TODO: check to see whether devn is connected by RTSI to other devices. 
-        # For now, we assume all devices are connected; all channels of the same type will share a
-        # single task.
-        #devn = 'default'
         return (devn, typ)
         
     def getTask(self, chan, typ=None):
@@ -63,23 +52,29 @@ class SuperTask:
             self.taskInfo[key] = {'cache': None, 'chans': [], 'dataWritten': False}
         return self.tasks[key]
         
-    def addChannel(self, chan, typ, mode=None, vRange=[-10., 10.], **kargs):
+    def addChannel(self, chan, typ, mode=None, vRange=[-10., 10.],**kargs):
         chan = self.absChanName(chan)
-        taskKey = self.getTaskKey(chan, typ)
-        typ = taskKey[1]
-        task = self.getTask(chan, typ)
+        (dev, typ) = self.getTaskKey(chan, typ)
+        t = self.getTask(chan, typ)
         
-        #pdb.set_trace()
         ## Determine mode to use for this channel
         if mode is None:
             if typ == 'ai':
-                mode = self.daq.Val_Cfg_Default
+                mode = self.daq.Val_RSE
             elif typ in ['di', 'do']:
                 mode = self.daq.Val_ChanPerLine
+            elif typ == 'ci':
+                mode = self.daq.Val_Rising
+            elif typ == 'co':
+                mode = self.daq.Val_Low
         elif isinstance(mode, basestring):
             # decide which modes are allowed for this channel
             if typ == 'ai':
-                allowed = ['RSE', 'NRSE', 'Diff', 'PseudoDiff', 'Cfg_Default']
+                allowed = ['RSE', 'NRSE', 'Diff', 'PseudoDiff']
+            elif typ =='ci':
+                allowed = ['Rising','Falling']
+            elif typ == 'co':
+                allowed = ['Low','High']
             elif typ in ['di', 'do']:
                 allowed = ['ChanPerLine', 'ChanForAllLines']
             else:
@@ -100,23 +95,37 @@ class SuperTask:
 
         if typ == 'ai':
             #print 'CreateAIVoltageChan(%s, "", %s, vRange[0], vRange[1], Val_Volts, None)' % (chan, str(mode))
-            task.CreateAIVoltageChan(chan, "", mode, vRange[0], vRange[1], self.daq.Val_Volts, None, **kargs)
+            t.CreateAIVoltageChan(chan, "", mode, vRange[0], vRange[1], self.daq.Val_Volts, None, **kargs)
         elif typ == 'ao':
             #print 'CreateAOVoltageChan(%s, "", vRange[0], vRange[1], Val_Volts, None)' % (chan)
-            task.CreateAOVoltageChan(chan, "", vRange[0], vRange[1], self.daq.Val_Volts, None, **kargs)
+            t.CreateAOVoltageChan(chan, "", vRange[0], vRange[1], self.daq.Val_Volts, None, **kargs)
         elif typ == 'di':
             #print 'CreateDIChan(%s, "", %s)' % (chan, str(mode))
-            task.CreateDIChan(chan, "", mode, **kargs)
+            t.CreateDIChan(chan, "", mode, **kargs)
         elif typ == 'do':
             #print 'CreateDOChan(%s, "", %s)' % (chan, str(mode))
-            task.CreateDOChan(chan, "", mode, **kargs)
+            t.CreateDOChan(chan, "", mode, **kargs)
+        elif typ=='ci':
+            #print 'CreateCICountEdgesChan(%s, "", %s,0,Val_CountUp)' % (chan, str(mode))
+            t.CreateCICountEdgesChan(chan, "", mode, 0, self.daq.Val_CountUp)
+        elif typ =='co':
+            freq=0
+            PWM=0
+            for key, value in kargs.iteritems():
+                if value<1 and value >0:
+                    PWM = value
+                else:           
+                    freq = value
+            #print 'CreateCOPulseChanFreq(%s, "", Val_Hz, %s,0.0,%s,%s)' % (chan,str(mode),freq,PWM)
+            t.CreateCOPulseChanFreq(chan,"",self.daq.Val_Hz,mode,0.0,freq,PWM)
         else:
             raise Exception("Don't know how to create channel type %s" % typ)
-        self.taskInfo[taskKey]['chans'].append(chan)
+        self.taskInfo[(dev, typ)]['chans'].append(chan)
         self.channelInfo[chan] = {
-            'task': taskKey,
-            'index': task.GetTaskNumChans()-1,
+            'task': (dev, typ),
+            'index': t.GetTaskNumChans()-1,
         }
+
     # def setChannelInfo(self, chan, info):
         # chan = self.absChanName(chan)
         # self.channelInfo[chan] = info
@@ -173,124 +182,65 @@ class SuperTask:
         
     def hasTasks(self):
         return len(self.tasks) > 0
-    
-    def getDeviceFamilies(self, deviceNames):
-        deviceFamilies = {}
-        for k in deviceNames:
-            #hDevice = Device(deviceNames[k])
-            deviceFamilies[k] = GetDevProductCategory(deviceNames[k])
-            
+        
     def configureClocks(self, rate, nPts):
         """Configure sample clock and triggering for all tasks"""
-        trigSource = None
+        clkSource = None
         if len(self.tasks) == 0:
             raise Exception("No tasks to configure.")
-        keys = list(self.tasks.keys())
+        keys = self.tasks.keys() 
         self.numPts = nPts
         self.rate = rate
         
-        #pdb.set_trace()
         ## Make sure we're only using 1 DAQ device (not sure how to tie 2 together yet)
         ndevs = len(set([k[0] for k in keys]))
         #if ndevs > 1:
             #raise Exception("Multiple DAQ devices not yet supported.")
-        taskDevs = {}
-        taskKeys = {}
-        #for i in range(len(keys)):
-        #    if keys[i][0] == 'Dev1':
-        #        trigSource = keys[i][1]
-        #        dev = keys[i][0]
-        #        key = keys[i]
-        #        break
-                
-        #print trigSource, dev, key
-            
-        for k,t in self.tasks.items():
-            dev = t.channels()[0].lstrip('/').split('/')[0]
-            print dev, k, t.taskType()
-            taskDevs[t.taskType()] = dev
-            taskKeys[t.taskType()] = k
+        dev = keys[0][0]
         
-        print self.daq.Val_AO
-        if self.daq.Val_AO in taskDevs:  ## Try ao first since E-series devices don't seem to work the other way around..
-            trigSource = 'ao' # '/Dev1/ao/SampleClock'
-            dev = taskDevs[self.daq.Val_AO]
-            key = taskKeys[self.daq.Val_AO]
-        elif self.daq.Val_AI in taskDevs:
-            trigSource = 'ai'  # '/Dev1/ai/SampleClock'
-            dev = taskDevs[self.daq.Val_AI]
-            key = taskKeys[self.daq.Val_AI]
+        if (dev, 'ao') in keys:  ## Try ao first since E-series devices don't seem to work the other way around..
+            clkSource = 'ao' # '/Dev1/ao/SampleClock'
+        elif (dev, 'ai') in keys:
+            clkSource = 'ai'  # '/Dev1/ai/SampleClock'
         else:
             ## Only digital tasks, configure a fake AI task so we can use the ai sample clock.
             ## Even better: Configure a counter to make a clock..
-            dev = taskDevs[self.daq.Val_AI]
             aich = '/%s/ai0' % dev
             self.addChannel(aich, 'ai')
-            trigSource = 'ai'  # '/Dev1/ai/SampleClock'
-            key = taskKeys[self.daq.Val_AI]
-        #deviceFamilies = getDeviceFamilies(taskDevs)
+            clkSource = 'ai'  # '/Dev1/ai/SampleClock'
         
-        print trigSource, dev, key
+        self.clockSource = (dev, clkSource)
         
-        # record which task has the clock source so the we know to 
-        # start it last later on.
-        self.clockSource = key
-        #print "KEY:", key
-        ## Configure common trigger for all tasks
-        trig = '/%s/%s/StartTrigger' % (dev, trigSource)
-        #print trig
+        ## Configure sample clock, rate for all tasks
+        clk = '/%s/%s/SampleClock' % (dev, clkSource)
         
+        
+        #keys = self.tasks.keys()
+        #keys.remove(self.clockSource)
+        #keys.insert(0, self.clockSource)
+        #for k in keys:
+
         for k in self.tasks:
-            ## TODO: this must be skipped for the task which uses trigSource by default.
+            ## TODO: this must be skipped for the task which uses clkSource by default.
+            if k[1] in ['ci','co']:
+                #print " skip the max rate for ci co tasks"
+                #print "%s CfgSampClkTiming(%s, %f, Val_Rising, Val_FiniteSamps, %d)" % (str(k), clk, rate, nPts)
+                self.tasks[k].CfgSampClkTiming(clk, rate, self.daq.Val_Rising, self.daq.Val_FiniteSamps, nPts)
+                continue
             maxrate = self.tasks[k].GetSampClkMaxRate()
-            print k, maxrate
             if rate > maxrate:
                 raise ValueError("Requested sample rate %d exceeds maximum (%d) for this device." % (int(rate), int(maxrate)))
-            #if k[0] == 'Dev1':
-            #    rate = 100000
-            #    nPts = 10000
-            #elif k[0] == 'Dev2':
-            #    rate = 10000
-            #    nPts = 1000
-            if k != key:
-                print "%s CfgSampClkTiming(None, %f, Val_Rising, Val_FiniteSamps, %d)" % (str(k), rate, nPts)
-                self.tasks[k].CfgSampClkTiming(None, rate, self.daq.Val_Rising, self.daq.Val_FiniteSamps, nPts)
-                self.tasks[k].CfgDigEdgeStartTrig(trig, self.daq.Val_Rising)
-                
-                #self.tasks[k].CfgSampClkTiming(clk, rate, self.daq.Val_Rising, self.daq.Val_FiniteSamps, nPts)
+            if k[1] != clkSource:
+                #print "%s CfgSampClkTiming(%s, %f, Val_Rising, Val_FiniteSamps, %d)" % (str(k), clk, rate, nPts)
+                self.tasks[k].CfgSampClkTiming(clk, rate, self.daq.Val_Rising, self.daq.Val_FiniteSamps, nPts)
             else:
-                print "TrigSource %s CfgSampClkTiming('', %f, Val_Rising, Val_FiniteSamps, %d)" % (str(k), rate, nPts)
-                self.tasks[k].CfgSampClkTiming(None, rate, self.daq.Val_Rising, self.daq.Val_FiniteSamps, nPts)
-                
-                #self.tasks[k].CfgSampClkTiming("", rate, self.daq.Val_Rising, self.daq.Val_FiniteSamps, nPts)
-        # In this example, the S Series device has been made the master and the X Series device has been made the slave. The reason for this is that the S Series synchronization has the least flexibility compared to the X Series that has PLL circuitry as well as access to the master timebase where the S Series only allows access to the master timebase for Analog circuit. Along with this, the X Series card has a faster timebase so it is easier to export the low frequency timebase from the S Series device to the X Series device.
-        #if dev == 'Dev1':
-        #    masterTimeBase = self.tasks[key].GetMasterTimebaseSrc()
-        #    masterclkRate  = self.tasks[key].GetMasterTimebaseRate()
-        #elif dev == 'Dev2':
-        #    masterTimeBase = self.tasks[key].GetSampClkTimebaseSrc()
-        #    masterclkRate  = self.tasks[key].GetSampClkTimebaseRate()
-        masterclkRate = 20e6
-        masterTimeBase = 'RTSI7'
-        newDeviceFamilies = [self.daq.Val_MSeriesDAQ, self.daq.Val_XSeriesDAQ] 
-        oldDeviceFamilies = [self.daq.Val_ESeriesDAQ, self.daq.Val_SSeriesDAQ, self.daq.Val_BSeriesDAQ, self.daq.Val_AOSeries]
-        print "MasterTimeBase, MasterClkRate : ", masterTimeBase, masterclkRate
-        self.daq.ConnectTerms('/Dev1/20MHzTimebase','/Dev1/'+masterTimeBase,self.daq.Val_DoNotInvertPolarity)
-        
-        for k in self.tasks:
-            #print k
-            deviceFamily = self.daq.GetDevProductCategory(k[0])
-            if (deviceFamily in newDeviceFamilies):
-                #print 'new ', deviceFamily
-                self.tasks[k].SetSampClkTimebaseSrc(masterTimeBase)
-                self.tasks[k].SetSampClkTimebaseRate(masterclkRate)
-            elif (deviceFamily in oldDeviceFamilies):
-                #print 'old ', deviceFamily
-                self.tasks[k].SetMasterTimebaseSrc(masterTimeBase)
-                self.tasks[k].SetMasterTimebaseRate(masterclkRate)
-                
+                #print "%s CfgSampClkTiming('', %f, Val_Rising, Val_FiniteSamps, %d)" % (str(k), rate, nPts)
+                self.tasks[k].CfgSampClkTiming("", rate, self.daq.Val_Rising, self.daq.Val_FiniteSamps, nPts)
+
         
     def setTrigger(self, trig):
+        #self.tasks[self.clockSource].CfgDigEdgeStartTrig(trig, Val_Rising)
+
         for t in self.tasks:
             if t[1] in ['di', 'do']:   ## M-series DAQ does not have trigger for digital acquisition
                 #print "  skipping trigger for digital task"

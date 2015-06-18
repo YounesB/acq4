@@ -390,6 +390,7 @@ class CFunction:
                     argType = self.lib._headers_.evalType(sig)
                     if argList[i] is self.lib.Null:  ## request to build a null pointer
                         if len(argType) < 2:
+                            print len(argType)
                             raise Exception("Can not create NULL for non-pointer argument type: %s" % str(argType))
                         argList[i] = self.lib._ctype(sig)()
                     #elif argType == ['char', '*']:  ## pass null pointer if none was specified. This is a little dangerous, but some functions will expect it.
@@ -424,10 +425,6 @@ class CFunction:
     def prettySignature(self):
         return "%s %s(%s)" % (''.join(self.sig[0]), self.name, ', '.join(["%s %s" % ("".join(map(str, s[1])), s[0]) for s in self.sig[1]]))
     
-    def __repr__(self):
-        return "<CFunction %s>" % self.name
-
-
 class CallResult:
     """Class for bundling results from C function calls. Allows access to the function
     return value as well as all of the arguments, since the function call will often return
