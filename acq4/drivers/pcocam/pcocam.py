@@ -15,7 +15,7 @@ modDir = os.path.dirname(__file__)
 headerFiles = [
     #"C:\Program Files\Photometrics\PVCam32\SDK\inc\master.h",
     #"C:\Program Files\Photometrics\PVCam32\SDK\inc\pvcam.h"
-    os.path.join(modDir, "Pco_ConvStructures.h"),#
+    os.path.join(modDir, "Pco_ConvStructures.h"),
     os.path.join(modDir, "PCO_err.h"),
 	os.path.join(modDir, "PCO_errt.h"),
 	os.path.join(modDir, "PCO_Structures.h"),
@@ -122,7 +122,7 @@ class _PCOCamClass:
 			# res1 = LIB.PCO_SetRecordingState(camHand,0)
 			# print 'RecordingState set to 0'				
 	
-init()		
+	
 #class _CameraClass:
 
 
