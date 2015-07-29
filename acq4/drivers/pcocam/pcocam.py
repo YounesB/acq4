@@ -130,7 +130,7 @@ class _PCOCameraClass:
 	
 
 	def start_camera(self,camHand):
-		act_recState = c_ulong(10)
+		act_recState = c_ushort(10)
 		res1 = LIB.PCO_GetRecordingState(camHand,byref(act_recState))
 		if res1():
 			print 'PCO_GetRecordingState failed %08X ' % res1
@@ -217,18 +217,17 @@ class _PCOCameraClass:
 			res2 = LIB.PCO_SetRecordingState(camHand,0)
 			print 'RecordingState set to 0'
 		
-		cam_desc = LIB.PCO_Description
-		'''cam_desc.wSize = 436
-		print "******************************",cam_desc
+		cam_desc = LIB.PCO_Description(436,)		
 		#print self.cam_desc.wSize, self.cam_desc.wSensorTypeDESC
-		res3 = LIB.PCO_GetCameraDescription(camHand,pointer(cam_desc))
+		res3 = LIB.PCO_GetCameraDescription(camHand,byref(cam_desc))
 		if res3():
 			print 'PCO_GetCameraDescription failed with error %08X' % res4
-		#bitpix = uint16(cam_desc.wDynResDESC)'''
+		#bitpix = uint16(cam_desc.wDynResDESC)
 		
 		if Rate!=0 and Rate!= 1:
 			print 'Rate must be 0 or 1'
-		print cam_desc.dwPixelRateDESC[0], cam_desc.dwPixelRateDESC[1]
+			
+		#print cam_desc.dwPixelRateDESC[0], cam_desc.dwPixelRateDESC[1]
 		if cam_desc.dwPixelRateDESC[Rate]:
 			res4 = LIB.PCO_SetPixelRate(camHand,cam_desc.dwPixelRateDESC[Rate])
 			if res4():
@@ -240,9 +239,10 @@ class _PCOCameraClass:
 			res4 = LIB.PCO_SetRecordingState(camHand,act_recState)
 			if res4():
 				print 'PCO_SetRecordingState failed'
+
 	def set_triggermode(self,camHand,triggerMode):
 		
-		act_recState = c_ulong(10)
+		act_recState = c_ushort(10)
 		res1 = LIB.PCO_GetRecordingState(camHand,byref(act_recState))
 		if res1():
 			print 'PCO_GetRecordingState failed'
@@ -254,7 +254,7 @@ class _PCOCameraClass:
 		if triggerMode!=0 and triggerMode!=1 and triggerMode!=2 and triggerMode!=3:
 			print 'Trigger mode must be 0,1,2 or 3'
 		
-		act_triggerMode = c_ulong(10)
+		act_triggerMode = c_ushort(10)
 		res2a = LIB.PCO_GetTriggerMode(camHand,byref(act_triggerMode))
 		if res2a():
 			print 'PCO_GetTriggerMode failed with error %08X ' % res2
@@ -272,7 +272,7 @@ class _PCOCameraClass:
 		#if res3b:
 		#	print 'PCO_GetAcquireMode failed with error %08X ' % res3b
 		
-		act_acquireMode = c_ulong(10)
+		act_acquireMode = c_ushort(10)
 		res3a = LIB.PCO_GetAcquireMode(camHand,byref(act_acquireMode))
 		if res3a():
 			print 'PCO_GetAcquireMode failed with error %08X ' % res3a
@@ -292,8 +292,8 @@ class _PCOCameraClass:
 				print 'PCO_SetRecordingState failed with error %08X ' % res4
 	def set_spatialbinning(self,camHand,hor_bin,vert_bin):
 		
-		act_recState = c_ulong(10)
-		res1 = self.LIB.PCO_GetRecordingState(camHand,byref(act_recState))
+		act_recState = c_ushort(10)
+		res1 = LIB.PCO_GetRecordingState(camHand,byref(act_recState))
 		if res1():
 			print 'PCO_GetRecordingState failed'
 	
@@ -331,16 +331,16 @@ class _PCOCameraClass:
 		if res1():
 			print 'PCO_GetCOCRuntime failed'
 		
-		self.waittime_s = double(dwNanoSec.value)
-		print 'waittime',double(dwSec.value), double(dwNanoSec.value)
-		self.waittime_s = self.waittime_s/1000000000.
-		self.waittime_s = self.waittime_s + double(dwSec.value)
+		self.waittime_s = c_double(dwNanoSec.value)
+		#print 'waittime',c_double(dwSec.value), c_double(dwNanoSec.value)
+		self.waittime_s = self.waittime_s.value/1000000000.
+		self.waittime_s = self.waittime_s + c_double(dwSec.value).value
 		
 		
 		print 'one frame needs %6.6f sec, resulting in %6.3f FPS' % (self.waittime_s,1./self.waittime_s)
-
-    def arm_camera(self,camHand):
-		act_recState = c_ulong(10)
+	
+	def arm_camera(self,camHand):
+		act_recState = c_ushort(10)
 		res1 = LIB.PCO_GetRecordingState(camHand,byref(act_recState))
 		if res1():
 			print 'PCO_GetRecordingState failed %08X ' % res1
