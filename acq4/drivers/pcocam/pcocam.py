@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
+import sys
+sys.path.append('..\\..\\..\\')
 from ctypes import *
-import sys, numpy, time, re, os
+import numpy, time, re, os
 from acq4.util.clibrary import *
 from collections import OrderedDict
 from acq4.util.debug import backtrace
@@ -42,7 +44,7 @@ class _PCOCamClass:
 	PCOCAM_CREATED = False
     
     
-	def __init__(self,triggerE):
+	def __init__(self):
 		print 'init'
 		
 		# dictionary to keep camera status
@@ -53,7 +55,6 @@ class _PCOCamClass:
 		self.glvar['out_ptr'] = []
 		self.lock = Mutex()
 		
-		self.triggerEvent = triggerE
 	
 	
 	def __del__(self):
@@ -73,7 +74,7 @@ class _PCOCamClass:
 
 	
 class _PCOCameraClass:
-	def __init__(self,triggerE):
+	def __init__(self):
 		print 'init'
 		
 		# dictionary to keep camera status
@@ -84,12 +85,12 @@ class _PCOCameraClass:
 		self.glvar['out_ptr'] = []
 		self.lock = Mutex()
 		
-		self.triggerEvent = triggerE
+		
 		
 	def open_camera(self):
 		cameraHandle = c_void_p()
 		resO = LIB.PCO_OpenCamera(byref(cameraHandle),0)
-		if resO:
+		if resO():
 			print 'PCO_OpenCamera failed with error %08X ' % resO
 			LIB.PCO_GetErrorText(resO)
 		else:
@@ -101,7 +102,7 @@ class _PCOCameraClass:
 		cameraHandle = c_void_p()
         if self.glvar['camera_open'] == 1 and self.glvar['do_close'] == 1:
 			resC = LIB.PCO_CloseCamera(cameraHandle)
-			if resC:
+			if resC():
 				print 'PCO_CloseCamera failed with error %08X ' % resC
 				LIB.PCO_GetErrorText(resC)
 			else:
@@ -121,12 +122,12 @@ class _PCOCameraClass:
 		#self.set_storagemode(self.glvar['out_ptr'],0)
 		self.show_frametime(self.glvar['out_ptr'])
 		self.arm_camera(self.glvar['out_ptr'])
-		#self.start_camera(self.glvar['out_ptr'])
+		self.start_camera(self.glvar['out_ptr'])
 	
 	def start_camera(self,camHand):
 		act_recState = c_ulong(10)
 		res1 = LIB.PCO_GetRecordingState(camHand,byref(act_recState))
-		if res1:
+		if res1():
 			print 'PCO_GetRecordingState failed %08X ' % res1
 			LIB.PCO_GetErrorText(res1)
 	
@@ -137,7 +138,7 @@ class _PCOCameraClass:
 	def stop_camera(self,camHand):
 		act_recState = c_ulong(10)
 		res1 = LIB.PCO_GetRecordingState(camHand,byref(act_recState))
-		if res1:
+		if res1():
 			print 'PCO_GetRecordingState failed %08X ' % res1
 			LIB.PCO_GetErrorText(res1)
 	
@@ -153,7 +154,7 @@ class _PCOCameraClass:
 		exp_base = c_ushort(0)
 		
 		res1 = LIB.PCO_GetDelayExposureTime(camHand,byref(del_time),byref(exp_time),byref(del_base),byref(exp_base))
-		if res1:
+		if res1():
 			print 'PCO_GetDelayExposureTime failed'
 		
 		print 'Exposure time set to : ',str(time),' ms'
@@ -163,17 +164,17 @@ class _PCOCameraClass:
 		exp_base = c_ushort(2)
 		
 		res2 = LIB.PCO_SetDelayExposureTime(camHand,del_time,exp_time,del_base,exp_base)
-		if res2:
+		if res2():
 			print 'PCO_SetDelayExposureTime failed'
 	def enable_timestamp(self,camHand,Stamp):
 		act_recState = c_ulong(10)
 		res1 = LIB.PCO_GetRecordingState(camHand,byref(act_recState))
-		if res1:
+		if res1():
 			print 'PCO_GetRecordingState failed %08X ' % res1
 	
 		if act_recState.value != 0:
 			res2 = LIB.PCO_SetRecordingState(camHand,0)
-			if res2:
+			if res2():
 				print 'PCO_SetRecordingState failed %08X ' % res2
 			else:
 				print 'RecordingState set to 0'
@@ -189,18 +190,18 @@ class _PCOCameraClass:
 			return
 		
 		res2 = LIB.PCO_SetTimestampMode(camHand,Stamp)
-		if res2:
+		if res2():
 			print 'PCO_GetRecordingState failed'
 		
 		if act_recState.value != 0:
 			res4 = LIB.PCO_SetRecordingState(camHand,act_recState)
-			if res4:
+			if res4():
 				print 'PCO_SetRecordingState failed'
 				
 	def set_pixelrate(self,camHand,Rate):
 		act_recState = c_ulong(10)
 		res1 = LIB.PCO_GetRecordingState(camHand,byref(act_recState))
-		if res1:
+		if res1():
 			print 'PCO_GetRecordingState failed'
 	
 		if act_recState.value != 0:
@@ -210,7 +211,7 @@ class _PCOCameraClass:
 		cam_desc = CAM_DESC(436,)
 		#print self.cam_desc.wSize, self.cam_desc.wSensorTypeDESC
 		res3 = LIB.PCO_GetCameraDescription(camHand,byref(cam_desc))
-		if res3:
+		if res3():
 			print 'PCO_GetCameraDescription failed with error %08X' % res4
 		#bitpix = uint16(cam_desc.wDynResDESC)
 		
@@ -227,13 +228,13 @@ class _PCOCameraClass:
 		
 		if act_recState.value != 0:
 			res4 = LIB.PCO_SetRecordingState(camHand,act_recState)
-			if res4:
+			if res4():
 				print 'PCO_SetRecordingState failed'
 	def set_triggermode(self,camHand,triggerMode):
 		
 		act_recState = c_ulong(10)
 		res1 = LIB.PCO_GetRecordingState(camHand,byref(act_recState))
-		if res1:
+		if res1():
 			print 'PCO_GetRecordingState failed'
 	
 		if act_recState.value != 0:
@@ -245,12 +246,12 @@ class _PCOCameraClass:
 		
 		act_triggerMode = c_ulong(10)
 		res2a = LIB.PCO_GetTriggerMode(camHand,byref(act_triggerMode))
-		if res2a:
+		if res2a():
 			print 'PCO_GetTriggerMode failed with error %08X ' % res2
 				
 		if act_triggerMode.value != triggerMode:
 			res3 = LIB.PCO_SetTriggerMode(camHand,c_ushort(triggerMode))
-			if res3 :
+			if res3():
 				print 'PCO_SetTriggerMode failed with error %08X ' % res3
 		
 		print 'old trigger mode was : ',str(act_triggerMode.value),' new mode is: ',str(triggerMode)
@@ -263,7 +264,7 @@ class _PCOCameraClass:
 		
 		act_acquireMode = c_ulong(10)
 		res3a = LIB.PCO_GetAcquireMode(camHand,byref(act_acquireMode))
-		if res3a:
+		if res3a():
 			print 'PCO_GetAcquireMode failed with error %08X ' % res3a
 		
 		
@@ -277,13 +278,13 @@ class _PCOCameraClass:
 		
 		if act_recState.value != 0:
 			res4 = LIB.PCO_SetRecordingState(camHand,act_recState)
-			if res4:
+			if res4():
 				print 'PCO_SetRecordingState failed with error %08X ' % res4
 	def set_spatialbinning(self,camHand,hor_bin,vert_bin):
 		
 		act_recState = c_ulong(10)
 		res1 = self.LIB.PCO_GetRecordingState(camHand,byref(act_recState))
-		if res1:
+		if res1():
 			print 'PCO_GetRecordingState failed'
 	
 		if act_recState.value != 0:
@@ -296,12 +297,12 @@ class _PCOCameraClass:
 		act_hor_bin = c_ushort(10)
 		act_vert_bin = c_ushort(10)
 		res2a = LIB.PCO_GetBinning(camHand,byref(act_hor_bin),byref(act_vert_bin))
-		if res2a:
+		if res2a():
 			print 'PCO_GetBinning failed with error %08X ' % res2
 				
 		if (act_hor_bin.value != hor_bin) or (act_vert_bin.value != vert_bin):
 			res3 = LIB.PCO_SetBinning(camHand,c_ushort(hor_bin),c_ushort(vert_bin))
-			if res3 :
+			if res3():
 				print 'PCO_SetBinning failed with error %08X ' % res3
 			
 			print 'old  hor. x vert. binning  was : ',str(act_hor_bin.value),'x',str(act_vert_bin.value),' new binning is: ',str(hor_bin),'x',str(vert_bin)
@@ -309,7 +310,7 @@ class _PCOCameraClass:
 		
 		if act_recState.value != 0:
 			res4 = LIB.PCO_SetRecordingState(camHand,act_recState)
-			if res4:
+			if res4():
 				print 'PCO_SetRecordingState failed with error %08X ' % res4
 
 	def show_frametime(self,camHand):
@@ -317,7 +318,7 @@ class _PCOCameraClass:
 		dwSec = c_uint(0)
 		dwNanoSec = c_uint(0)
 		res1 = LIB.PCO_GetCOCRuntime(camHand,byref(dwSec),byref(dwNanoSec))
-		if res1:
+		if res1():
 			print 'PCO_GetCOCRuntime failed'
 		
 		self.waittime_s = double(dwNanoSec.value)
@@ -331,23 +332,23 @@ class _PCOCameraClass:
 def arm_camera(self,camHand):
 		act_recState = c_ulong(10)
 		res1 = LIB.PCO_GetRecordingState(camHand,byref(act_recState))
-		if res1:
+		if res1():
 			print 'PCO_GetRecordingState failed %08X ' % res1
 	
 		if act_recState.value != 0:
 			res2 = LIB.PCO_SetRecordingState(camHand,0)
-			if res2:
+			if res2():
 				print 'PCO_SetRecordingState failed %08X ' % res2
 			else:
 				print 'RecordingState set to 0'
 		
 		res0 = LIB.PCO_ArmCamera(camHand)
-		if res0 :
+		if res0():
 			print 'PCO_ArmCamera failed'
 		
 		if act_recState.value != 0:
 			res4 = LIB.PCO_SetRecordingState(camHand,act_recState)
-			if res4:
+			if res4():
 				print 'PCO_SetRecordingState failed'		
 
 

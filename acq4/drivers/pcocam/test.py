@@ -1,5 +1,8 @@
+import sys
+sys.path.append('..\\..\\..\\')
 import pcocam
 
-pco = pcocam.PCOCam
 
-oc = pco.open_camera()
+pco = pcocam._PCOCameraClass
+
+pco.setup_camera()
