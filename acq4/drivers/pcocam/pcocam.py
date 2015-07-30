@@ -370,6 +370,21 @@ class _PCOCameraClass:
 				print 'PCO_SetRecordingState failed'
 
 
+	def record_images(self,image_c=1):
+		
+		self.image_count = image_c
+		
+		if self.image_count==1:
+			print 'get single image'
+			self.get_live_image(self.glvar['out_ptr'],1)
+		elif self.image_count>0:
+			print 'get ',str(self.image_count),' images'
+			self.get_live_image(self.glvar['out_ptr'],self.image_count)
+		else:
+			print 'image_count cannot be negative'
+		self.stop_camera(self.glvar['out_ptr'])
+
+
 	def get_live_image(self,camHand,imacount):
 		print '********GET LIVE IMAGE********'
 		self.imacount = imacount
@@ -387,8 +402,8 @@ class _PCOCameraClass:
 			print 'PCO_SetBitAlignment failed with error %08x' % res2()
 		bitpix=c_uint16(cam_desc.wDynResDESC)
 		bytepix=numpy.fix(c_double(bitpix.value+7.).value/8.)
-        
-        
+		
+		
 		cam_type = LIB.PCO_CameraType(1364,)
 		res5 = LIB.PCO_GetCameraType(camHand,byref(cam_type))
 		if res5():
@@ -438,7 +453,7 @@ class _PCOCameraClass:
 		#print 'Timstamp data of image:'
 		if self.imacount == 1:
 			print 'Obtaining time-stamp of image'
-			#self.timeStamp[0] = self.extract_timestamp(self.image_stack,bitalign.value,bitpix)
+			self.timeStamp[0] = self.extract_timestamp(self.image_stack,bitalign.value,bitpix)
 		else:
 			print 'Obtaining time-stamp of image data ...'
 			for n in range(self.imacount):
@@ -488,7 +503,6 @@ class _PCOCameraClass:
 		else:
 			print 'pco_get_image_single: GetImageEx done'
 		
-		
 		#print self.image_stack 
 		#pdb.set_trace()
 		#res5 = PCO_CAM_SDK.PCO_GetBuffer(camHand,byref(sBufNr),byref(im_ptr),byref(ev_ptr))
@@ -509,5 +523,153 @@ class _PCOCameraClass:
 		del ev_ptr
 		
 		#return (res7,image_stack)
+
+
+	def get_image_multi(self,camHand,imacount,act_xsize,act_ysize,bitpix,interface):
+		
+		if imacount<2:
+			print 'Wrong image count, must be 2 or greater, return'
+			return
+		
+		act_recState = c_ushort(10)
+		res1 = LIB.PCO_GetRecordingState(camHand,byref(act_recState))
+		if res1():
+			print 'PCO_GetRecordingState failed'
+		
+		# get the memory for the images
+		imas=c_uint32(numpy.fix((c_double(bitpix.value).value+7.)/8.))
+		imas= imas.value*c_uint32(act_ysize.value).value* c_uint32(act_xsize.value).value; 
+		imasize=c_uint(imas)
+		lineadd=0
+		
+		#self.image_stack=ones((imacount,act_ysize.value+lineadd,act_xsize.value),dtype=uint16)
+		
+		self.image_stack_v=numpy.zeros((imacount,act_ysize.value+lineadd,act_xsize.value),dtype=numpy.uint16)
+		#self.image_stack_2=zeros((imacount,act_ysize.value+lineadd,act_xsize.value),dtype=uint16)
+
+		# Allocate 2 SDK buffer and set address of buffers in stack
+		sBufNr_1 = c_short(-1)
+		im_ptr_1 = self.image_stack_v[0,:,:].ctypes.data_as(POINTER(c_ushort))
+		ev_ptr_1 = c_void_p()
+		#pdb.set_trace()
+		res2 = LIB.PCO_AllocateBuffer(camHand,byref(sBufNr_1),imasize,byref(im_ptr_1),byref(ev_ptr_1))
+		if res2():
+			print 'PCO_AllocateBuffer failed'
+		
+		sBufNr_2 = c_short(-1)
+		im_ptr_2 = self.image_stack_v[1,:,:].ctypes.data_as(POINTER(c_ushort))
+		ev_ptr_2 = c_void_p()
+		#pdb.set_trace()
+		res3 = LIB.PCO_AllocateBuffer(camHand,byref(sBufNr_2),imasize,byref(im_ptr_2),byref(ev_ptr_2))
+		if res3():
+			print 'PCO_AllocateBuffer failed'
+			LIB.PCO_FreeBuffer(camHand,sBufNr_1)
+		
+		print 'bufnr1: ',str(sBufNr_1.value),' bufnr2: ',str(sBufNr_2.value)
+		buflist_1 = LIB.PCO_Buflist(sBufNr_1,)
+		buflist_2 = LIB.PCO_Buflist(sBufNr_2,)
+		print 'bufnr1: ',str(buflist_1.sBufNr),' bufnr2: ',str(buflist_2.sBufNr)
+		
+		if act_recState.value == 0:
+			print 'Start Camera and grab images'
+			res3 = LIB.PCO_SetRecordingState(camHand,1)
+			if res3():
+				print 'PCO_SetRecordingState failed'
+		
+		#nb1 = 0
+		#nb2 = 0
+		res4 = LIB.PCO_AddBufferEx(camHand,c_uint(0),c_uint(0),sBufNr_1,act_xsize,act_ysize,c_ushort(bitpix.value))
+		if res4():
+			print 'PCO_AddBufferEx failed'
+		#print 'added buffer 1-%d' % nb1
+		res5 = LIB.PCO_AddBufferEx(camHand,c_uint(0),c_uint(0),sBufNr_2,act_xsize,act_ysize,c_ushort(bitpix.value))
+		if res5():
+			print 'PCO_AddBufferEx failed'
+		#print 'added buffer 2-%d' % nb2
+		
+		#nstore=0
+		for n in range(imacount):
+			#print n
+			if n%2==0:
+				#print 'Wait for buffer 1 :',str(n)
+				res6 = LIB.PCO_WaitforBuffer(camHand,c_int(1),byref(buflist_1),c_int(5000))
+				#print 'buffer 1-%d read' % nb1
+				#nb1+=1
+				if res6():
+					print 'PCO_WaitforBuffer 1 failed'
+					break
+				#print 'statusdll : %08X , statusdrv : %08X ' % (buflist_1.dwStatusDll,buflist_1.dwStatusDrv)
+				if (buflist_1.dwStatusDll&int(0x0008000)) and (buflist_1.dwStatusDrv ==0 ):
+					#res7 = PCO_CAM_SDK.PCO_GetBuffer(camHand,byref(sBufNr_1),byref(im_ptr_1),byref(ev_ptr_1))
+					#pdb.set_trace()
+					#if res7 :
+					#	print 'PCO_GetBuffer failed'
+					#	break
+					#
+					#ima_1 = copy(image_stack_1)
+					buflist_1.dwStatusDll= (buflist_1.dwStatusDll & int(0xFFFF7FFF))
+					if (n+2)<(imacount):
+						im_ptr_1 = self.image_stack_v[n+2,:,:].ctypes.data_as(POINTER(c_ushort))
+						res8 = LIB.PCO_AllocateBuffer(camHand,byref(sBufNr_1),imasize,byref(im_ptr_1),byref(ev_ptr_1))
+						if res8():
+							print 'PCO_AllocateBuffer failed'
+							break
+						res9 = LIB.PCO_AddBufferEx(camHand,c_uint(0),c_uint(0),sBufNr_1,act_xsize,act_ysize,c_ushort(bitpix.value))
+						#print 'added buffer 1-%d' % nb1
+						if res9():
+							print 'PCO_AddBufferEx failed'
+							break
+			else:
+				#print 'Wait for buffer 2 :',str(n)
+				res10 = LIB.PCO_WaitforBuffer(camHand,c_int(1),byref(buflist_2),c_int(5000))
+				#print 'buffer 2-%d read' % nb2
+				#nb2+=1
+				if res10():
+					print 'PCO_WaitforBuffer 2 failed'
+					break
+				#print 'statusdll : %08X , statusdrv : %08X ' % (buflist_1.dwStatusDll,buflist_1.dwStatusDrv)
+				if (buflist_2.dwStatusDll&int(0x0008000)) and (buflist_2.dwStatusDrv ==0 ):
+					#res11 = PCO_CAM_SDK.PCO_GetBuffer(camHand,byref(sBufNr_2),byref(im_ptr_2),byref(ev_ptr_2))
+					#pdb.set_trace()
+					#if res11 :
+					#	print 'PCO_GetBuffer failed'
+					#	break
+					#ima_2 = copy(image_stack_2)
+					buflist_2.dwStatusDll= (buflist_2.dwStatusDll & int(0xFFFF7FFF))
+					if (n+2)<(imacount):
+						im_ptr_2 = self.image_stack_v[n+2,:,:].ctypes.data_as(POINTER(c_ushort))
+						res12 = LIB.PCO_AllocateBuffer(camHand,byref(sBufNr_2),imasize,byref(im_ptr_2),byref(ev_ptr_2))
+						if res12:
+							print 'PCO_AllocateBuffer failed'
+							break
+						res13 = LIB.PCO_AddBufferEx(camHand,c_uint(0),c_uint(0),sBufNr_2,act_xsize,act_ysize,c_ushort(bitpix.value))
+						#print 'added buffer 2-%d' % nb2
+						if res13():
+							print 'PCO_AddBufferEx failed'
+							break
+				#self.image_stack[nstore,:,:] = (ima_1 + ima_2)
+				#self.image_stack[nstore,0,0:14] = ima_1[0,0:14]
+				#nstore+=1
+			
+		if act_recState.value == 0:
+			print 'Stop Camera'
+			res14 = LIB.PCO_SetRecordingState(camHand,0)
+			if res14():
+				print 'PCO_SetRecordingState failed'
+		
+		res13 = LIB.PCO_CancelImages(camHand)
+		if res13():
+			print 'PCO_CancelImages failed'
+		
+		res15 = LIB.PCO_FreeBuffer(camHand,sBufNr_1)
+		if res15():
+			print 'PCO_FreeBuffer failed'
+		res16 = LIB.PCO_FreeBuffer(camHand,sBufNr_2)
+		if res16():
+			print 'PCO_FreeBuffer failed'
+		
+		#del ev_ptr
+		
+		#return (res16,image_stack)
 
 
