@@ -35,10 +35,6 @@ headerFiles = [
 HEADERS = CParser(headerFiles, cache=os.path.join(modDir, 'pcocam_headers.cache'), copyFrom=winDefs())
 LIB = CLibrary(windll.SC2_Cam, HEADERS, prefix='PCO_')
 
-def init():
-    ## System-specific code
-    global PVCam
-    PVCam = _PVCamClass()
 
 class _PCOCamClass:
 	
@@ -355,7 +351,7 @@ class _PCOCameraClass:
 			print 'PCO_GetRecordingState failed %08X ' % res1()
 		if act_recState.value != 0:
 			res2 = LIB.PCO_SetRecordingState(camHand,0)
-			if res2:
+			if res2():
 				print 'PCO_SetRecordingState failed %08X ' % res2()
 			else:
 				print 'RecordingState set to 0'
@@ -378,11 +374,68 @@ class _PCOCameraClass:
 			print 'get single image'
 			self.get_live_image(self.glvar['out_ptr'],1)
 		elif self.image_count>0:
-			print 'get ',str(self.image_count),' images'
+			#print 'get ',str(self.image_count),' images'
 			self.get_live_image(self.glvar['out_ptr'],self.image_count)
 		else:
 			print 'image_count cannot be negative'
 		self.stop_camera(self.glvar['out_ptr'])
+
+
+	#def extract_timestamp(self,ima,act_align,bitpix):
+		#if act_align ==0:
+			#ts = numpy.double(ima[1,0:14])
+		#else:
+			#ts = numpy.fix(numpy.double(ima[0,0:14])/(2^(16-bitpix)))
+		##pdb.set_trace()
+		#ts = numpy.array(ts,dtype=int)
+		##pdb.set_trace()
+		
+		#b = ''
+		#b+=str(int(numpy.fix(ts[0]/16))) + str(ts[0]&15)
+		#b+=str(int(numpy.fix(ts[1]/16))) + str(ts[1]&15)
+		#b+=str(int(numpy.fix(ts[2]/16))) + str(ts[2]&15)
+		#b+=str(int(numpy.fix(ts[3]/16))) + str(ts[3]&15)
+		
+		#b += ' '
+		## year
+		#b+=str(int(numpy.fix(ts[4]/16))) + str(ts[4]&15)
+		#b+=str(int(numpy.fix(ts[5]/16))) + str(ts[5]&15)
+		#b+='-'
+		## month
+		#b+=str(int(numpy.fix(ts[6]/16))) + str(ts[6]&15)
+		#b+='-'
+		## day
+		#b+=str(int(numpy.fix(ts[7]/16))) + str(ts[7]&15)
+		#b+=' '
+		
+		## hour
+		#c=str(int(numpy.fix(ts[8]/16))) + str(ts[8]&15)
+		#b+=c+':'
+		#ttt = float(c)*float(60.)*float(60.)
+		## min
+		#c=str(int(numpy.fix(ts[9]/16))) + str(ts[9]&15)
+		#b+=c+':'
+		#ttt = float(c)*float(60.)
+		## sec
+		#c=str(int(numpy.fix(ts[10]/16))) + str(ts[10]&15)
+		#b+=c+'.'
+		#ttt += float(c)
+		## us
+		#c=str(int(numpy.fix(ts[11]/16))) + str(ts[11]&15)
+		#b+=c
+		##print (c), float(c)
+		#ttt += float(c)/float(100.)
+		#c=str(int(numpy.fix(ts[12]/16))) + str(ts[12]&15)
+		#b+=c
+		#ttt += float(c)/float(10000.)
+		#c=str(int(numpy.fix(ts[13]/16))) + str(ts[13]&15)
+		#b+=c
+		#ttt += float(c)/float(1000000.)
+		#print b[20:22]
+		#titi = numpy.float64(b[20:22])*60.*60. + numpy.float64(b[23:25])*60. + numpy.float64(b[26:-1])
+		##print b, titi
+		
+		#return titi
 
 
 	def get_live_image(self,camHand,imacount):
@@ -448,16 +501,17 @@ class _PCOCameraClass:
 			#(errorCode,image_stack) = pco_get_image_multi(cameraHandle,PCO_CAM_SDK,imacount,act_xsize,act_ysize,bitpix,interface)
 			self.get_image_multi(camHand,self.imacount,act_xsize,act_ysize,bitpix,interface)
 		
-		#pdb.set_trace()
-		self.timeStamp = numpy.zeros(self.imacount,dtype=numpy.float64)
-		#print 'Timstamp data of image:'
-		if self.imacount == 1:
-			print 'Obtaining time-stamp of image'
-			self.timeStamp[0] = self.extract_timestamp(self.image_stack,bitalign.value,bitpix)
-		else:
-			print 'Obtaining time-stamp of image data ...'
-			for n in range(self.imacount):
-				self.timeStamp[n] = self.extract_timestamp(self.image_stack_v[n,:,:],bitalign.value,bitpix)
+		
+		
+		#self.timeStamp = numpy.zeros(self.imacount,dtype=numpy.float64)
+		##print 'Timstamp data of image:'
+		#if self.imacount == 1:
+			#print 'Obtaining time-stamp of image'
+			#self.timeStamp[0] = self.extract_timestamp(self.image_stack,bitalign.value,bitpix.value)
+		#else:
+			#print 'Obtaining time-stamp of image data ...'
+			#for n in range(self.imacount):
+				#self.timeStamp[n] = self.extract_timestamp(self.image_stack_v[n,:,:],bitalign.value,bitpix.value)
 
 
 	def get_image_single(self,camHand,act_xsize,act_ysize,bitpix,interface): 
@@ -526,7 +580,7 @@ class _PCOCameraClass:
 
 
 	def get_image_multi(self,camHand,imacount,act_xsize,act_ysize,bitpix,interface):
-		
+		print '********GET IMAGE MULTI********'
 		if imacount<2:
 			print 'Wrong image count, must be 2 or greater, return'
 			return
@@ -554,7 +608,7 @@ class _PCOCameraClass:
 		#pdb.set_trace()
 		res2 = LIB.PCO_AllocateBuffer(camHand,byref(sBufNr_1),imasize,byref(im_ptr_1),byref(ev_ptr_1))
 		if res2():
-			print 'PCO_AllocateBuffer failed'
+			print 'PCO_AllocateBuffer 1 failed'
 		
 		sBufNr_2 = c_short(-1)
 		im_ptr_2 = self.image_stack_v[1,:,:].ctypes.data_as(POINTER(c_ushort))
@@ -562,7 +616,7 @@ class _PCOCameraClass:
 		#pdb.set_trace()
 		res3 = LIB.PCO_AllocateBuffer(camHand,byref(sBufNr_2),imasize,byref(im_ptr_2),byref(ev_ptr_2))
 		if res3():
-			print 'PCO_AllocateBuffer failed'
+			print 'PCO_AllocateBuffer 2 failed'
 			LIB.PCO_FreeBuffer(camHand,sBufNr_1)
 		
 		print 'bufnr1: ',str(sBufNr_1.value),' bufnr2: ',str(sBufNr_2.value)
@@ -612,7 +666,7 @@ class _PCOCameraClass:
 						im_ptr_1 = self.image_stack_v[n+2,:,:].ctypes.data_as(POINTER(c_ushort))
 						res8 = LIB.PCO_AllocateBuffer(camHand,byref(sBufNr_1),imasize,byref(im_ptr_1),byref(ev_ptr_1))
 						if res8():
-							print 'PCO_AllocateBuffer failed'
+							print 'PCO_AllocateBuffer 3 failed'
 							break
 						res9 = LIB.PCO_AddBufferEx(camHand,c_uint(0),c_uint(0),sBufNr_1,act_xsize,act_ysize,c_ushort(bitpix.value))
 						#print 'added buffer 1-%d' % nb1
@@ -639,8 +693,8 @@ class _PCOCameraClass:
 					if (n+2)<(imacount):
 						im_ptr_2 = self.image_stack_v[n+2,:,:].ctypes.data_as(POINTER(c_ushort))
 						res12 = LIB.PCO_AllocateBuffer(camHand,byref(sBufNr_2),imasize,byref(im_ptr_2),byref(ev_ptr_2))
-						if res12:
-							print 'PCO_AllocateBuffer failed'
+						if res12():
+							print 'PCO_AllocateBuffer 4 failed'
 							break
 						res13 = LIB.PCO_AddBufferEx(camHand,c_uint(0),c_uint(0),sBufNr_2,act_xsize,act_ysize,c_ushort(bitpix.value))
 						#print 'added buffer 2-%d' % nb2
@@ -673,4 +727,40 @@ class _PCOCameraClass:
 		#return (res16,image_stack)
 
 
+<<<<<<< HEAD
 
+=======
+	def return_single_image(self):
+		return self.image_stack
+
+
+	def return_images(self,tempBin=1):
+		# create a mask such that time-stamps does not get averaged 
+		mask = numpy.copy(self.image_stack_v[0])
+		mask[:] = 1
+		mask[0,0:14] = 0 
+		mask = numpy.array(mask,dtype=bool)
+		#
+		if tempBin==2:
+			for n in range(int(self.imacount)/2):
+				self.image_stack_v[2*n][mask] = (self.image_stack_v[2*n]/2. + self.image_stack_v[2*n+1]/2.)[mask]
+			return self.image_stack_v[::2][:int(self.imacount)/2]
+		#	tmp = self.image_stack_v[::2]+self.image_stack_v[1::2]
+		elif tempBin==3:
+			for n in range(int(self.imacount)/3):
+				self.image_stack_v[3*n][mask] = (self.image_stack_v[3*n]/3. + self.image_stack_v[3*n+1]/3. + self.image_stack_v[3*n+2]/3.)[mask]
+			return self.image_stack_v[::3][:int(self.imacount)/3]
+		#	tmp = self.image_stack_v[::2]+self.image_stack_v[1::2]
+		elif tempBin==4:
+			for n in range(int(self.imacount)/4):
+				self.image_stack_v[4*n][mask] = (self.image_stack_v[4*n]/4. + self.image_stack_v[4*n+1]/4. + self.image_stack_v[4*n+2]/4. + self.image_stack_v[4*n+3]/4.)[mask]
+			return self.image_stack_v[::4][:int(self.imacount)/4]
+		#	tmp = self.image_stack_v[::2]+self.image_stack_v[1::2]
+		elif tempBin==1:
+			return self.image_stack_v
+		else:
+			print 'temporal Bin is not supported!'
+			return self.image_stack_v
+
+
+>>>>>>> 4930397f4242796ab5d8950394760f20803a7aea
