@@ -46,11 +46,17 @@ class _PCOCamClass:
 		# dictionary to keep camera status
 		self.glvar = {}
 		self.glvar['do_libunload'] = 0
-		self.glvar['do_close'] = 0
 		self.glvar['camera_open'] = 0
 		self.glvar['out_ptr'] = []
+		self.params = {}
+		self.params['exposure_time'] = 0
+		self.params['time_stamp'] = 0
+		self.params['pixelrate'] = 0
+		self.params['trigger_mode'] = 0
+		self.params['hor_bin'] = 0
+		self.params['vert_bin'] = 0
+		self.set_Params = 0
 		self.lock = Mutex()
-		
 
 
 	def __del__(self):
@@ -79,6 +85,15 @@ class _PCOCameraClass:
 		self.glvar['do_libunload'] = 0
 		self.glvar['camera_open'] = 0
 		self.glvar['out_ptr'] = []
+		self.params = {}
+		self.params['exposure_time'] = 0
+		self.params['time_stamp'] = 0
+		self.params['pixelrate'] = 0
+		self.params['trigger_mode'] = 0
+		self.params['hor_bin'] = 0
+		self.params['vert_bin'] = 0
+		self.set_Params = 0
+		
 		self.lock = Mutex()
 
 
@@ -106,6 +121,26 @@ class _PCOCameraClass:
 				self.glvar['out_ptr'] = []
 		else:
 			print 'No open camera'
+			
+	def list_Params(self):
+		print 'Parameters are :\n'
+		print 'exposure_time =',self.params['exposure_time']
+		print '\ntime_stamp=',self.params['time_stamp']
+		print '\npixelrate=',self.params['pixelrate']
+		print '\ntrigger_mode=',self.params['trigger_mode']
+		print '\nhor_bin=',self.params['hor_bin']
+		print '\nvert_bin=',self.params['vert_bin']
+		
+	def set_Params(self,exposure_time,time_stamp,pixelrate,trigger_mode,hor_bin,vert_bin):
+		self.set_Params = 1
+		self.params['exposure_time'] = exposure_time
+		self.params['time_stamp'] = time_stamp
+		self.params['pixelrate'] = pixelrate
+		self.params['trigger_mode'] = trigger_mode
+		self.params['hor_bin'] = hor_bin
+		self.params['vert_bin'] = vert_bin
+		self.list_Params()
+		
 
 
 	def setup_camera(self,exposure_time=50,time_stamp=1,pixelrate=1,trigger_mode=0,hor_bin=1,vert_bin=1):
@@ -116,16 +151,28 @@ class _PCOCameraClass:
 			print 'Camera already open'
 		print 'camer_open should be 1 is :',self.glvar['camera_open']
 		
-		self.set_exposure_time(self.glvar['out_ptr'],exposure_time)
-		self.enable_timestamp(self.glvar['out_ptr'],time_stamp)
-		self.set_pixelrate(self.glvar['out_ptr'],pixelrate)
-		self.set_triggermode(self.glvar['out_ptr'],trigger_mode)
-		self.set_spatialbinning(self.glvar['out_ptr'],hor_bin,vert_bin)
-		#self.set_storagemode(self.glvar['out_ptr'],0)
+		if self.set_Params == 0:
+			print 'Parameters are set to default value'
+			self.params['exposure_time'] = exposure_time
+			self.params['time_stamp'] = time_stamp
+			self.params['pixelrate'] = pixelrate
+			self.params['trigger_mode'] = trigger_mode
+			self.params['hor_bin'] = hor_bin
+			self.params['vert_bin'] = vert_bin
+			self.list_Params()
+		else:
+			self.set_Params = 0
+			
+		self.set_exposure_time(self.glvar['out_ptr'],self.params['exposure_time'])
+		self.enable_timestamp(self.glvar['out_ptr'],self.params['time_stamp'])
+		self.set_pixelrate(self.glvar['out_ptr'],self.params['pixelrate'])
+		self.set_triggermode(self.glvar['out_ptr'],self.params['trigger_mode'])
+		self.set_spatialbinning(self.glvar['out_ptr'],self.params['hor_bin'],self.params['vert_bin'])
 		self.show_frametime(self.glvar['out_ptr'])
 		self.arm_camera(self.glvar['out_ptr'])
 		self.start_camera(self.glvar['out_ptr'])
 		print 'CAMERA READY'
+			
 
 
 	def start_camera(self,camHand):
