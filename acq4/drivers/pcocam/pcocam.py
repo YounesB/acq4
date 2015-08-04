@@ -114,7 +114,7 @@ class _PCOCameraClass:
 		if self.glvar['camera_open'] == 1:
 			resC = LIB.PCO_CloseCamera(camHand)
 			if resC():
-				print 'PCO_CloseCamera failed with error %08X ' % resC()
+				print 'PCO_CloseCamera failed '
 			else:
 				print 'PCO_CloseCamera done'
 				self.glvar['camera_open'] = 0
@@ -123,13 +123,13 @@ class _PCOCameraClass:
 			print 'No open camera'
 			
 	def list_Params(self):
-		print 'Parameters are :\n'
-		print 'exposure_time =',self.params['exposure_time']
-		print '\ntime_stamp=',self.params['time_stamp']
-		print '\npixelrate=',self.params['pixelrate']
-		print '\ntrigger_mode=',self.params['trigger_mode']
-		print '\nhor_bin=',self.params['hor_bin']
-		print '\nvert_bin=',self.params['vert_bin']
+		print 'Parameters are :'
+		print 'exposure_time=',self.params['exposure_time']
+		print 'time_stamp=',self.params['time_stamp']
+		print 'pixelrate=',self.params['pixelrate']
+		print 'trigger_mode=',self.params['trigger_mode']
+		print 'hor_bin=',self.params['hor_bin']
+		print 'vert_bin=',self.params['vert_bin'],'\n'
 		
 	def set_Params(self,exposure_time,time_stamp,pixelrate,trigger_mode,hor_bin,vert_bin):
 		self.set_Params = 1
@@ -152,7 +152,7 @@ class _PCOCameraClass:
 		print 'camer_open should be 1 is :',self.glvar['camera_open']
 		
 		if self.set_Params == 0:
-			print 'Parameters are set to default value'
+			print '\nParameters are set to default value'
 			self.params['exposure_time'] = exposure_time
 			self.params['time_stamp'] = time_stamp
 			self.params['pixelrate'] = pixelrate
@@ -191,7 +191,7 @@ class _PCOCameraClass:
 		act_recState = c_ushort(10)
 		res1 = LIB.PCO_GetRecordingState(camHand,byref(act_recState))
 		if res1():
-			print 'PCO_GetRecordingState failed %08X ' % res1
+			print 'PCO_GetRecordingState failed '
 			LIB.PCO_GetErrorText(res1)
 	
 		if act_recState.value != 0:
@@ -225,12 +225,12 @@ class _PCOCameraClass:
 		act_recState = c_ushort(10)
 		res1 = LIB.PCO_GetRecordingState(camHand,byref(act_recState))
 		if res1():
-			print 'PCO_GetRecordingState failed %08X ' % res1
+			print 'PCO_GetRecordingState failed '
 	
 		if act_recState.value != 0:
 			res2 = LIB.PCO_SetRecordingState(camHand,0)
 			if res2():
-				print 'PCO_SetRecordingState failed %08X ' % res2
+				print 'PCO_SetRecordingState failed '
 			else:
 				print 'RecordingState set to 0'
 		
@@ -305,12 +305,12 @@ class _PCOCameraClass:
 		act_triggerMode = c_ushort(10)
 		res2a = LIB.PCO_GetTriggerMode(camHand,byref(act_triggerMode))
 		if res2a():
-			print 'PCO_GetTriggerMode failed with error %08X ' % res2
+			print 'PCO_GetTriggerMode failed with error '
 				
 		if act_triggerMode.value != triggerMode:
 			res3 = LIB.PCO_SetTriggerMode(camHand,c_ushort(triggerMode))
 			if res3():
-				print 'PCO_SetTriggerMode failed with error %08X ' % res3
+				print 'PCO_SetTriggerMode failed with error'
 		
 		print 'old trigger mode was : ',str(act_triggerMode.value),' new mode is: ',str(triggerMode)
 		
@@ -323,7 +323,7 @@ class _PCOCameraClass:
 		act_acquireMode = c_ushort(10)
 		res3a = LIB.PCO_GetAcquireMode(camHand,byref(act_acquireMode))
 		if res3a():
-			print 'PCO_GetAcquireMode failed with error %08X ' % res3a
+			print 'PCO_GetAcquireMode failed with error'
 		
 		
 		#elif triggerMode == 0:
@@ -337,7 +337,7 @@ class _PCOCameraClass:
 		if act_recState.value != 0:
 			res4 = LIB.PCO_SetRecordingState(camHand,act_recState)
 			if res4():
-				print 'PCO_SetRecordingState failed with error %08X ' % res4
+				print 'PCO_SetRecordingState failed with error'
 
 
 	def set_spatialbinning(self,camHand,hor_bin,vert_bin):
@@ -358,12 +358,12 @@ class _PCOCameraClass:
 		act_vert_bin = c_ushort(10)
 		res2a = LIB.PCO_GetBinning(camHand,byref(act_hor_bin),byref(act_vert_bin))
 		if res2a():
-			print 'PCO_GetBinning failed with error %08X ' % res2
+			print 'PCO_GetBinning failed with error '
 				
 		if (act_hor_bin.value != hor_bin) or (act_vert_bin.value != vert_bin):
 			res3 = LIB.PCO_SetBinning(camHand,c_ushort(hor_bin),c_ushort(vert_bin))
 			if res3():
-				print 'PCO_SetBinning failed with error %08X ' % res3
+				print 'PCO_SetBinning failed with error '
 			
 			print 'old  hor. x vert. binning  was : ',str(act_hor_bin.value),'x',str(act_vert_bin.value),' new binning is: ',str(hor_bin),'x',str(vert_bin)
 		
@@ -371,7 +371,7 @@ class _PCOCameraClass:
 		if act_recState.value != 0:
 			res4 = LIB.PCO_SetRecordingState(camHand,act_recState)
 			if res4():
-				print 'PCO_SetRecordingState failed with error %08X ' % res4
+				print 'PCO_SetRecordingState failed with error '
 
 
 	def show_frametime(self,camHand):
@@ -395,11 +395,14 @@ class _PCOCameraClass:
 		act_recState = c_ushort(10)
 		res1 = LIB.PCO_GetRecordingState(camHand,byref(act_recState))
 		if res1():
-			print 'PCO_GetRecordingState failed %08X ' % res1()
+			print 'PCO_GetRecordingState failed '
 		if act_recState.value != 0:
 			res2 = LIB.PCO_SetRecordingState(camHand,0)
 			if res2():
+
 				print 'PCO_SetRecordingState failed %08X ' % res2()
+				print 'PCO_SetRecordingState failed '
+
 			else:
 				print 'RecordingState set to 0'
 		
@@ -493,13 +496,13 @@ class _PCOCameraClass:
 		cam_desc = LIB.PCO_Description(436,)
 		res1 = LIB.PCO_GetCameraDescription(camHand,byref(cam_desc))
 		if res1():
-			print 'PCO_GetCameraDescription failed with error %08X' % res1()
+			print 'PCO_GetCameraDescription failed with error '
 		
 		# set bitalignment LSB
 		bitalign = c_ushort(0)
 		res2 = LIB.PCO_SetBitAlignment(camHand,bitalign)
 		if res2():        
-			print 'PCO_SetBitAlignment failed with error %08x' % res2()
+			print 'PCO_SetBitAlignment failed with error '
 		bitpix=c_uint16(cam_desc.wDynResDESC)
 		bytepix=numpy.fix(c_double(bitpix.value+7.).value/8.)
 		
@@ -507,7 +510,7 @@ class _PCOCameraClass:
 		cam_type = LIB.PCO_CameraType(1364,)
 		res5 = LIB.PCO_GetCameraType(camHand,byref(cam_type))
 		if res5():
-			print 'PCO_GetCamerType failed with error %08X' % res5()
+			print 'PCO_GetCamerType failed with error '
 		interface = cam_type.wInterfaceType
         
 		act_xsize= c_ushort(0)
@@ -517,11 +520,11 @@ class _PCOCameraClass:
 		# use PCO_GetSizes because this always returns accurat image size for next recording
 		res8 = LIB.PCO_GetSizes(camHand,byref(act_xsize),byref(act_ysize),byref(max_xsize),byref(max_ysize))
 		if res8():
-			print 'PCO_GetSizes failed with error %08X' % res8()
+			print 'PCO_GetSizes failed with error '
 		
 		res9 = LIB.PCO_CamLinkSetImageParameters(camHand,act_xsize,act_ysize)
 		if res9():
-			print 'PCO_CamLinkSetImageParameters failed with error %08X' % res9()
+			print 'PCO_CamLinkSetImageParameters failed with error '
 		
 		# limit allocation of memory to 1Gbyte
 		self.storage_required = (c_double(self.imacount).value*c_double(act_xsize.value).value*c_double(act_ysize.value).value*bytepix)
@@ -773,10 +776,6 @@ class _PCOCameraClass:
 		
 		#return (res16,image_stack)
 
-
-<<<<<<< HEAD
-
-=======
 	def return_single_image(self):
 		return self.image_stack
 
@@ -809,5 +808,3 @@ class _PCOCameraClass:
 			print 'temporal Bin is not supported!'
 			return self.image_stack_v
 
-
->>>>>>> 4930397f4242796ab5d8950394760f20803a7aea
